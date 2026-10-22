@@ -21,7 +21,7 @@ Campbound.main = (() => {
       state.player.x = 900;
       state.player.y = 380;
       ui.setChapter('Beyond camp · Shattered Plains');
-      ui.say('<strong>The trail opens onto the Shattered Plains.</strong> A Bridge Four runner is waiting beside the supply post.', 'Follow the trail right to return. Reach the supply post and press E / ACT to start the 35-second bridge quest.');
+      ui.say('<strong>The trail opens onto the Shattered Plains.</strong> Two quest markers wait along the trail: the Bridge Four run and the chrysalis maze.', 'Follow the trail right to return. Walk up to either marker and press E / ACT, or click it, to begin.');
     } else if (state.scene === 'plains' && state.player.x >= 923 && state.player.y > 250 && state.player.y < 420) {
       state.scene = 'camp';
       state.player.x = 55;

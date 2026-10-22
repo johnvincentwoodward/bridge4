@@ -11,8 +11,12 @@ Campbound.input = (() => {
     const y = (event.clientY - bounds.top) * canvas.height / bounds.height;
     if (Campbound.state.scene === 'camp' || Campbound.state.scene === 'plains') {
       if (!Campbound.activities.activateMarkerAt(x, y)) {
-        window.Campbound.ui.notify(Campbound.state.scene === 'plains' ? 'Click the Bridge Four supply post to start the quest.' : 'Click an activity marker to start, or walk close and press E.');
+        window.Campbound.ui.notify(Campbound.state.scene === 'plains' ? 'Click the Bridge Four post or the chrysalis map to start a quest.' : 'Click an activity marker to start, or walk close and press E.');
       }
+      return;
+    }
+    if (Campbound.state.scene === 'maze') {
+      Campbound.activities.moveMazeTowardScreen(x, y);
       return;
     }
     onAction(' ', 'Space');

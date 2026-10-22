@@ -26,8 +26,10 @@ Campbound.activities = (() => {
     const links = new Set();
     const visited = new Array(mazeWidth * mazeHeight).fill(false);
     const startCell = { col: 0, row: Math.floor(mazeHeight / 2) };
+    const seen = new Array(mazeWidth * mazeHeight).fill(false);
     const stack = [startCell];
     visited[index(startCell.col, startCell.row)] = true;
+    seen[index(startCell.col, startCell.row)] = true;
     while (stack.length) {
       const cell = stack[stack.length - 1];
       const options = [[1, 0], [-1, 0], [0, 1], [0, -1]]
@@ -68,6 +70,10 @@ Campbound.activities = (() => {
       goal: { col: mazeWidth - 1, row: Math.floor(mazeHeight / 2) },
       col: startCell.col, row: startCell.row, steps: 0,
       shortest: distances[index(mazeWidth - 1, Math.floor(mazeHeight / 2))],
+      visited: seen,
+      cameraX: 0,
+      cameraY: startCell.row * 62 + 52 + 100 - 320,
+      target: null,
       runTime: 0, timeLimit: 75, timeCost: 0.25,
       moveCooldown: 0, bridgeFlash: 0, bridgeFrom: null, bridgeTo: null,
       parshendiProgress: 0
@@ -90,11 +96,50 @@ Campbound.activities = (() => {
     maze.bridgeTo = { col, row };
     maze.bridgeFlash = 18;
     maze.col = col; maze.row = row; maze.steps += 1;
+    maze.visited[to] = true;
+    if (maze.target && maze.target.col === col && maze.target.row === row) maze.target = null;
     maze.runTime += maze.timeCost;
     maze.moveCooldown = 10;
     if (col === maze.goal.col && row === maze.goal.row) {
       finish(true, `You reach the chrysalis in ${maze.runTime.toFixed(1)} seconds using ${maze.steps} bridges. The Parshendi arrives just behind you.`);
     }
+  }
+
+  function moveMazeTowardScreen(x, y) {
+    const maze = activityState.maze;
+    if (state.scene !== 'maze' || !maze) return false;
+    if (y < 105 || y > 510 || (x > 795 && y < 220)) return true;
+    const col = Math.round((x + maze.cameraX - 58) / 76);
+    const row = Math.round((y - 100 + maze.cameraY - 52) / 62);
+    if (col < 0 || col >= maze.width || row < 0 || row >= maze.height) return true;
+    const targetX = 58 + col * 76 - maze.cameraX;
+    const targetY = 52 + row * 62 - maze.cameraY + 100;
+    if (Math.abs(targetX - x) > 31 || Math.abs(targetY - y) > 23) return true;
+    const dc = col - maze.col; const dr = row - maze.row;
+    if (dc === 0 && dr === 0) { ui.notify('You are on this plateau. Click a neighboring plateau to move.'); return true; }
+    if (Math.abs(dc) + Math.abs(dr) !== 1) { ui.notify('Click one neighboring plateau at a time to carry the bridge forward.'); return true; }
+    maze.target = { col, row };
+    moveMaze(dc, dr);
+    return true;
+  }
+
+  function updateMazeCamera(maze) {
+    const worldX = 58 + maze.col * 76;
+    const worldY = 52 + maze.row * 62;
+    const maxX = Math.max(0, 58 * 2 + (maze.width - 1) * 76 - 960);
+    const maxY = Math.max(0, 52 * 2 + (maze.height - 1) * 62 - 440);
+    let nextX = maze.cameraX;
+    let nextY = maze.cameraY;
+    const visibleX = worldX - maze.cameraX;
+    const visibleY = worldY - maze.cameraY + 100;
+    if (visibleX < 140) nextX = worldX - 140;
+    else if (visibleX > 820) nextX = worldX - 820;
+    if (visibleY < 150) nextY = worldY + 100 - 150;
+    else if (visibleY > 450) nextY = worldY + 100 - 450;
+    nextX = Math.max(0, Math.min(maxX, nextX));
+    nextY = Math.max(0, Math.min(maxY, nextY));
+    maze.cameraX += (nextX - maze.cameraX) * 0.22;
+    maze.cameraY += (nextY - maze.cameraY) * 0.22;
   }
 
   function updateMaze(frameScale) {
@@ -104,6 +149,7 @@ Campbound.activities = (() => {
     maze.parshendiProgress = Math.min(1, maze.runTime / maze.timeLimit);
     maze.bridgeFlash = Math.max(0, maze.bridgeFlash - frameScale);
     maze.moveCooldown = Math.max(0, maze.moveCooldown - frameScale);
+    updateMazeCamera(maze);
     if (maze.runTime >= maze.timeLimit) {
       finish(false, 'The Parshendi reaches the chrysalis first. The bridge crew turns back to camp.');
       return;
@@ -114,7 +160,7 @@ Campbound.activities = (() => {
       : keys.arrowdown || keys.s ? [0, 1]
         : keys.arrowleft || keys.a ? [-1, 0]
           : keys.arrowright || keys.d ? [1, 0] : null;
-    if (direction) moveMaze(direction[0], direction[1]);
+    if (direction) { maze.target = null; moveMaze(direction[0], direction[1]); }
   }
 
   const help = {
@@ -122,7 +168,7 @@ Campbound.activities = (() => {
     fight: 'Space or click = strike · Shift = dodge the lunge',
     run: 'The crew hauls automatically · Brace with Shift / BRACE · E / ACT at each chasm',
     spear: 'Space = thrust',
-    maze: 'WASD / arrow keys move the bridge crew. Open planks cross narrow gaps; black gaps are too wide. Reach the chrysalis before the timer ends.'
+    maze: 'Click one neighboring plateau to carry the bridge there. WASD / arrow keys also move. Wide dark gaps cannot be crossed; backtrack. The camera follows at the screen edge.'
   };
 
   function start(id, questRun = false) {
@@ -145,7 +191,7 @@ Campbound.activities = (() => {
       activityState.parshendiProgress = 0;
     }
     if (id === 'maze') activityState.maze = createMaze();
-    ui.setChapter(questRun ? 'Bridge Four Quest · Six chasms' : Campbound.config.activities[id].chapter);
+    if (id === 'maze') ui.setChapter('Chrysalis Maze'); else ui.setChapter(questRun ? 'Bridge Four Quest' : Campbound.config.activities[id].chapter);
 
     const instructions = {
       stew: '<strong>Make the stew</strong> — Add meat, roots, then herbs. Press the shown number, Space, click the pot, or use E / ACT to add the next ingredient.',
@@ -157,7 +203,7 @@ Campbound.activities = (() => {
     };
 
     instructions.stew = '<strong>Cook for Bridge Four.</strong> Add meat, roots, and herbs in order, stir until it thickens, then taste it. The next step is always shown above the pot.';
-    instructions.maze = '<strong>Race for the chrysalis.</strong> Explore the plateau maze with WASD or the arrow keys. Plank bridges mark safe gaps; dark gaps are too wide and lead nowhere. Backtrack and find another route before the Parshendi reaches the chrysalis.';
+    instructions.maze = '<strong>Race for the chrysalis.</strong> Click one neighboring plateau to carry the bridge there, or use WASD / arrow keys. Plank bridges show safe gaps; dark gaps are too wide, so backtrack and try another route. The map scrolls gently when you reach its edge. Reach the chrysalis before the 75-second timer runs out.';
     if (questRun) instructions.run = '<strong>Bridge Four needs you!</strong> Carry the bridge across ten chasms in 35 seconds, then race the Parshendi to the plateau. Brace for arrows, set the bridge at each gap, and press Space / E / ACT five times in the final sprint. Finish to earn Bridge Bearer; finish without misses for Arrow Guard; finish under 30 seconds for Fleet Runner.';
     if (questRun) ui.setChapter('Bridge Four Quest - Ten chasms and a race');
     ui.say(instructions[id], help[id]);
@@ -413,5 +459,5 @@ Campbound.activities = (() => {
     try { localStorage.setItem('campbound.badges', JSON.stringify(state.badges)); } catch (_error) { /* Badges still work for this session. */ }
     ui.notify(`BADGE EARNED: ${name} — ${description}`);
   }
-  return { interact, activateMarkerAt, handleKey, updateFrame };
+  return { interact, activateMarkerAt, moveMazeTowardScreen, handleKey, updateFrame };
 })();

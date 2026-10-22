@@ -74,10 +74,113 @@ Campbound.renderer = (() => {
     ctx.fillStyle = '#92704b'; ctx.beginPath(); ctx.moveTo(458, 256); ctx.lineTo(510, 220); ctx.lineTo(562, 256); ctx.closePath(); ctx.fill();
     ctx.fillStyle = '#d1b57e'; ctx.fillRect(483, 267, 55, 25);
     ctx.fillStyle = '#332d25'; ctx.font = 'bold 10px Arial'; ctx.textAlign = 'center'; ctx.fillText('BRIDGE FOUR', 510, 278); ctx.fillText('QUEST', 510, 289);
+    ctx.fillStyle = '#594631'; ctx.fillRect(640, 252, 82, 64);
+    ctx.fillStyle = '#89704a'; ctx.beginPath(); ctx.moveTo(629, 256); ctx.lineTo(681, 220); ctx.lineTo(733, 256); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#c6d8c0'; ctx.beginPath(); ctx.moveTo(681, 263); ctx.lineTo(692, 278); ctx.lineTo(681, 293); ctx.lineTo(670, 278); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#252b27'; ctx.font = 'bold 9px Arial'; ctx.fillText('CHRYSALIS', 681, 306);
     ctx.fillStyle = '#e8d5ad'; ctx.font = 'bold 19px Arial'; ctx.fillText('THE SHATTERED PLAINS', 480, 55);
     ctx.font = '13px Arial'; ctx.fillText('SUPPLY POST  ·  PRESS E / ACT OR CLICK TO BEGIN', 510, 338);
     ctx.textAlign = 'left'; ctx.fillStyle = '#eee1c3'; ctx.font = 'bold 13px Arial'; ctx.fillText('TRAIL TO CAMP  →', 782, 350);
     drawPerson(state.player.x, state.player.y, '#d0bea0', true);
+    ctx.textAlign = 'left';
+  }
+
+  function drawMaze() {
+    const maze = state.activity.maze;
+    if (!maze) return;
+    const tileX = 76; const tileY = 62; const originX = 58; const originY = 52;
+    const mapWidth = originX * 2 + (maze.width - 1) * tileX;
+    const mapHeight = originY * 2 + (maze.height - 1) * tileY;
+    const cameraX = maze.cameraX;
+    const cameraY = maze.cameraY;
+    const screenX = col => originX + col * tileX - cameraX;
+    const screenY = row => originY + row * tileY - cameraY + 100;
+    ctx.fillStyle = '#111c20'; ctx.fillRect(0, 100, 960, 440);
+    // Chasm floor beneath the hundreds of scattered plateaus.
+    for (let i = 0; i < 46; i += 1) {
+      const x = (i * 211 + 27) % 960; const y = 112 + ((i * 127) % 416);
+      ctx.strokeStyle = i % 3 ? '#26383a' : '#392f29'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 9, y + 13); ctx.lineTo(x + 5, y + 25); ctx.stroke();
+    }
+    const idAt = (col, row) => row * maze.width + col;
+    // Plank bridges mark gaps that the crew can span. Empty dark rifts are too wide.
+    for (let row = 0; row < maze.height; row += 1) {
+      for (let col = 0; col < maze.width; col += 1) {
+        const x = screenX(col); const y = screenY(row);
+        if (col + 1 < maze.width && maze.links.has(`${idAt(col, row)}:${idAt(col + 1, row)}`)) {
+          ctx.fillStyle = '#765638'; ctx.fillRect(x + 24, y - 7, tileX - 48, 14);
+          ctx.fillStyle = '#b48b52'; ctx.fillRect(x + 24, y - 7, tileX - 48, 3);
+          for (let plank = 0; plank < 3; plank += 1) { ctx.strokeStyle = '#4a3828'; ctx.beginPath(); ctx.moveTo(x + 30 + plank * 7, y - 7); ctx.lineTo(x + 30 + plank * 7, y + 7); ctx.stroke(); }
+        }
+        if (row + 1 < maze.height && maze.links.has(`${idAt(col, row)}:${idAt(col, row + 1)}`)) {
+          ctx.fillStyle = '#765638'; ctx.fillRect(x - 7, y + 15, 14, tileY - 30);
+          ctx.fillStyle = '#b48b52'; ctx.fillRect(x - 7, y + 15, 3, tileY - 30);
+          for (let plank = 0; plank < 3; plank += 1) { ctx.strokeStyle = '#4a3828'; ctx.beginPath(); ctx.moveTo(x - 7, y + 20 + plank * 7); ctx.lineTo(x + 7, y + 20 + plank * 7); ctx.stroke(); }
+        }
+      }
+    }
+    if (maze.bridgeFlash > 0 && maze.bridgeFrom && maze.bridgeTo) {
+      const ax = screenX(maze.bridgeFrom.col); const ay = screenY(maze.bridgeFrom.row);
+      const bx = screenX(maze.bridgeTo.col); const by = screenY(maze.bridgeTo.row);
+      ctx.strokeStyle = '#f0cb83'; ctx.lineWidth = 12; ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+      ctx.strokeStyle = '#725333'; ctx.lineWidth = 5; ctx.stroke();
+    }
+    for (let row = 0; row < maze.height; row += 1) {
+      for (let col = 0; col < maze.width; col += 1) {
+        const x = screenX(col); const y = screenY(row);
+        if (x < -50 || x > 1010 || y < 75 || y > 590) continue;
+        const index = idAt(col, row);
+        const seen = maze.visited[index];
+        ctx.fillStyle = '#0008'; ctx.beginPath(); ctx.ellipse(x, y + 8, 30, 15, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = seen ? '#735f43' : '#514b3c';
+        ctx.beginPath(); ctx.moveTo(x - 28, y - 7); ctx.lineTo(x - 18, y - 17); ctx.lineTo(x + 13, y - 18); ctx.lineTo(x + 28, y - 5); ctx.lineTo(x + 22, y + 12); ctx.lineTo(x + 5, y + 18); ctx.lineTo(x - 22, y + 13); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = seen ? '#b59a68' : '#897653';
+        ctx.beginPath(); ctx.moveTo(x - 27, y - 8); ctx.lineTo(x - 17, y - 16); ctx.lineTo(x + 13, y - 17); ctx.lineTo(x + 27, y - 5); ctx.lineTo(x + 21, y + 9); ctx.lineTo(x + 4, y + 15); ctx.lineTo(x - 22, y + 10); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = '#d0b47b'; ctx.lineWidth = 1; ctx.stroke();
+        ctx.strokeStyle = '#756447'; ctx.beginPath(); ctx.moveTo(x - 9, y - 10); ctx.lineTo(x - 2, y - 3); ctx.lineTo(x - 6, y + 5); ctx.stroke();
+        if (col === maze.start.col && row === maze.start.row) {
+          ctx.fillStyle = '#eee1c3'; ctx.font = 'bold 10px Arial'; ctx.textAlign = 'center'; ctx.fillText('START', x, y - 24);
+          ctx.fillStyle = '#dfbd79'; ctx.beginPath(); ctx.arc(x, y - 2, 6, 0, Math.PI * 2); ctx.fill();
+        }
+        if (col === maze.goal.col && row === maze.goal.row) {
+          ctx.fillStyle = '#d8edc5'; ctx.beginPath(); ctx.moveTo(x, y - 14); ctx.lineTo(x + 10, y); ctx.lineTo(x, y + 14); ctx.lineTo(x - 10, y); ctx.closePath(); ctx.fill();
+          ctx.strokeStyle = '#f5f4cd'; ctx.lineWidth = 2; ctx.stroke();
+          ctx.fillStyle = '#e5ebd0'; ctx.font = 'bold 10px Arial'; ctx.textAlign = 'center'; ctx.fillText('CHRYSALIS', x, y - 24);
+        }
+      }
+    }
+    const playerX = screenX(maze.col); const playerY = screenY(maze.row);
+    if (maze.target) {
+      const targetX = screenX(maze.target.col); const targetY = screenY(maze.target.row);
+      ctx.strokeStyle = '#ffe28c'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(targetX, targetY, 25, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.fillStyle = '#dfbd79'; ctx.beginPath(); ctx.arc(playerX, playerY, 12, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#34332d'; ctx.beginPath(); ctx.arc(playerX, playerY - 3, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff0bd'; ctx.font = 'bold 10px Arial'; ctx.textAlign = 'center';
+    ctx.fillText('YOU', playerX, playerY - 19);
+    ctx.fillStyle = '#f0d393'; ctx.font = 'bold 14px Arial'; ctx.textAlign = 'left';
+    ctx.fillText(`TIME  ${Math.max(0, maze.timeLimit - maze.runTime).toFixed(1)}s`, 24, 94);
+    ctx.fillText(`BRIDGES  ${maze.steps}`, 190, 94);
+    ctx.fillText(`SHORTEST ROUTE  ${maze.shortest}`, 350, 94);
+    ctx.fillText(`PLATEAUS  ${maze.width * maze.height}`, 540, 94);
+    ctx.fillStyle = '#29332f'; ctx.fillRect(610, 84, 326, 10);
+    ctx.fillStyle = '#d98563'; ctx.fillRect(610, 84, 326 * maze.parshendiProgress, 10);
+    ctx.fillStyle = '#e6d3b0'; ctx.font = 'bold 10px Arial'; ctx.textAlign = 'right'; ctx.fillText('PARSHENDI', 936, 79);
+    // Mini-map shows how much of the maze has been explored and where the goal lies.
+    const miniX = 804; const miniY = 115; const miniCell = 4;
+    ctx.fillStyle = '#101719d9'; ctx.fillRect(miniX - 6, miniY - 6, maze.width * miniCell + 12, maze.height * miniCell + 12);
+    for (let row = 0; row < maze.height; row += 1) {
+      for (let col = 0; col < maze.width; col += 1) {
+        ctx.fillStyle = maze.visited[idAt(col, row)] ? '#dfbd79' : '#596259';
+        if (col === maze.goal.col && row === maze.goal.row) ctx.fillStyle = '#d7ebc6';
+        ctx.fillRect(miniX + col * miniCell, miniY + row * miniCell, 3, 3);
+      }
+    }
+    ctx.fillStyle = '#ffe28c'; ctx.beginPath();
+    ctx.arc(miniX + maze.col * miniCell + 1.5, miniY + maze.row * miniCell + 1.5, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.textAlign = 'center'; ctx.fillStyle = '#f2e5cc'; ctx.font = 'bold 12px Arial';
+    ctx.fillText('CLICK A NEIGHBORING PLATEAU OR USE ARROWS / WASD  ·  ESC TO LEAVE', 480, 522);
     ctx.textAlign = 'left';
   }
 
@@ -397,8 +500,8 @@ Campbound.renderer = (() => {
   }
 
   function drawActivity() {
-    const activityDrawers = { stew: drawStew, fight: drawFight, run: drawRun, spear: drawSpear };
-    const titles = { stew: 'CAMP KITCHEN', fight: 'ROCKY TRAIL', run: state.activity.runStage === 'race' ? 'RACE TO THE PLATEAU' : 'BRIDGE CROSSING', spear: 'TRAINING RING' };
+    const activityDrawers = { stew: drawStew, fight: drawFight, run: drawRun, spear: drawSpear, maze: drawMaze };
+    const titles = { stew: 'CAMP KITCHEN', fight: 'ROCKY TRAIL', run: state.activity.runStage === 'race' ? 'RACE TO THE PLATEAU' : 'BRIDGE CROSSING', spear: 'TRAINING RING', maze: 'SHATTERED PLAINS - CHRYSALIS RUN' };
     drawActivityTitle(titles[state.scene]);
     activityDrawers[state.scene]();
   }
