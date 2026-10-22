@@ -14,5 +14,5 @@ Campbound.state = {
     }
   })(),
   activity: { id: '', tick: 0, phase: 0, mistakes: 0 },
-  completed: { stew: 0, fight: 0, run: 0, spear: 0 }
+  completed: { stew: 0, fight: 0, run: 0, spear: 0, maze: 0 }
 };

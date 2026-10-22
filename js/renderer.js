@@ -89,19 +89,57 @@ Campbound.renderer = (() => {
   }
 
   function drawStew() {
-    ctx.fillStyle = '#49372d'; ctx.fillRect(340, 250, 280, 170);
-    ctx.fillStyle = '#252826'; ctx.beginPath(); ctx.ellipse(480, 300, 80, 39, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = ['#754936', '#855b37', '#627247'][state.activity.phase] || '#754936';
-    ctx.beginPath(); ctx.ellipse(480, 299, 70, 30, 0, 0, Math.PI * 2); ctx.fill();
-    const ingredient = ['MEAT', 'ROOTS', 'HERBS'][state.activity.phase];
-    ctx.fillStyle = '#dfbd7b'; ctx.font = 'bold 19px Arial'; ctx.textAlign = 'center';
-    ctx.fillText(ingredient ? `NEXT: ${ingredient}` : 'STEW READY', 480, 456);
-    if (ingredient) {
-      ctx.fillStyle = '#f3e4c6'; ctx.font = '14px Arial';
-      ctx.fillText(`${state.activity.phase + 1}  •  SPACE / CLICK THE POT / E-ACT`, 480, 488);
+    const phase = state.activity.phase;
+    const tick = state.activity.tick;
+    const steps = ['MEAT', 'ROOTS', 'HERBS', 'STIR', 'TASTE'];
+    ctx.fillStyle = '#303631'; ctx.fillRect(0, 105, 960, 435);
+    ctx.fillStyle = '#414941'; ctx.fillRect(0, 115, 960, 160);
+    for (let shelfX = 85; shelfX < 900; shelfX += 145) {
+      ctx.fillStyle = '#796044'; ctx.fillRect(shelfX, 190, 112, 12);
+      ctx.fillStyle = '#9a7a50'; ctx.fillRect(shelfX + 8, 202, 8, 45);
+      ctx.fillRect(shelfX + 95, 202, 8, 45);
     }
+    // A heavy camp table, firebox, and soot-dark iron cauldron.
+    ctx.fillStyle = '#604631'; ctx.fillRect(185, 385, 590, 90);
+    ctx.fillStyle = '#8a6946'; ctx.fillRect(185, 385, 590, 12);
+    ctx.fillStyle = '#3b2c24'; ctx.fillRect(235, 470, 32, 52); ctx.fillRect(695, 470, 32, 52);
+    ctx.fillStyle = '#382b25'; ctx.fillRect(395, 365, 170, 32);
+    ctx.fillStyle = '#e28a47'; ctx.beginPath(); ctx.moveTo(423, 382); ctx.quadraticCurveTo(480, 330, 537, 382); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#ffd278'; ctx.beginPath(); ctx.moveTo(451, 382); ctx.quadraticCurveTo(480, 352, 509, 382); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#171d1b'; ctx.beginPath(); ctx.ellipse(480, 322, 127, 82, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#66706a'; ctx.beginPath(); ctx.ellipse(480, 300, 131, 25, 0, 0, Math.PI * 2); ctx.fill();
+    const broth = ctx.createRadialGradient(455, 287, 8, 480, 300, 112);
+    broth.addColorStop(0, phase >= 3 ? '#a77b43' : '#92522f'); broth.addColorStop(1, phase >= 2 ? '#394d32' : '#603922');
+    ctx.fillStyle = broth; ctx.beginPath(); ctx.ellipse(480, 300, 116, 18, 0, 0, Math.PI * 2); ctx.fill();
+    // Chunks and herbs appear as each ingredient is added.
+    for (let i = 0; i < Math.min(phase, 3) * 3; i += 1) {
+      const x = 400 + ((i * 47 + 13) % 160);
+      const y = 294 + ((i * 11) % 12);
+      ctx.fillStyle = i % 3 === 2 && phase >= 3 ? '#90a064' : i % 2 ? '#c28a4d' : '#79442f';
+      ctx.beginPath(); ctx.ellipse(x, y, 8 + (i % 3), 4, (i % 3) * 0.3, 0, Math.PI * 2); ctx.fill();
+    }
+    for (let i = 0; i < 5; i += 1) {
+      const x = 430 + i * 24 + Math.sin(tick * 0.07 + i) * 5;
+      const y = 281 + Math.cos(tick * 0.09 + i) * 4;
+      ctx.fillStyle = '#f2d090'; ctx.beginPath(); ctx.arc(x, y, 2.5, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#c7c0a5'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x - 10, 258); ctx.quadraticCurveTo(x - 22, 238 - Math.sin(tick * 0.04 + i) * 8, x - 8, 224 - i * 2); ctx.stroke();
+    }
+    if (phase === 3) {
+      ctx.strokeStyle = '#d5bb8a'; ctx.lineWidth = 8; ctx.beginPath(); ctx.moveTo(553, 265); ctx.lineTo(500, 317); ctx.stroke();
+      ctx.fillStyle = '#dfc18e'; ctx.beginPath(); ctx.arc(557, 261, 8, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = '#dfbd7b'; ctx.font = 'bold 17px Arial'; ctx.textAlign = 'center';
+    ctx.fillText(phase < 5 ? `NEXT STEP: ${steps[phase]}` : 'STEW READY!', 480, 438);
+    for (let i = 0; i < 5; i += 1) {
+      ctx.fillStyle = i < phase ? '#e5bc70' : '#303a34'; ctx.beginPath(); ctx.arc(400 + i * 40, 460, 8, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#e5bc70'; ctx.lineWidth = 1; ctx.stroke();
+    }
+    const control = phase < 3 ? `PRESS ${phase + 1} / SPACE / CLICK POT  ·  ${steps[phase]}`
+      : phase === 3 ? 'SPACE / E-ACT / CLICK POT  ·  STIR'
+        : phase === 4 ? 'SPACE / E-ACT / CLICK POT  ·  TASTE' : 'SUPPER IS READY';
+    ctx.fillStyle = '#f3e4c6'; ctx.font = '14px Arial'; ctx.fillText(control, 480, 505);
+    ctx.textAlign = 'left';
   }
-
   function drawParshendi(x, lunge) {
     const lean = lunge * 12;
     const ground = 400;
@@ -155,7 +193,16 @@ Campbound.renderer = (() => {
   }
 
   function drawFight() {
-    ctx.fillStyle = '#b9a47e'; ctx.fillRect(100, 390, 760, 8);
+    ctx.fillStyle = '#465448'; ctx.fillRect(0, 100, 960, 285);
+    ctx.fillStyle = '#62634f'; ctx.beginPath(); ctx.moveTo(0, 330); ctx.lineTo(105, 216); ctx.lineTo(196, 328); ctx.lineTo(295, 245); ctx.lineTo(394, 330); ctx.lineTo(528, 205); ctx.lineTo(643, 330); ctx.lineTo(754, 228); ctx.lineTo(870, 332); ctx.lineTo(960, 256); ctx.lineTo(960, 400); ctx.lineTo(0, 400); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#77705a'; ctx.beginPath(); ctx.moveTo(0, 358); ctx.lineTo(162, 300); ctx.lineTo(253, 370); ctx.lineTo(415, 318); ctx.lineTo(548, 372); ctx.lineTo(705, 290); ctx.lineTo(834, 364); ctx.lineTo(960, 322); ctx.lineTo(960, 410); ctx.lineTo(0, 410); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#8c7652'; ctx.fillRect(0, 385, 960, 155);
+    ctx.fillStyle = '#c0a16b'; ctx.fillRect(0, 385, 960, 8);
+    for (let i = 0; i < 13; i += 1) {
+      const rockX = 34 + i * 73; const rockY = 410 + (i % 3) * 27;
+      ctx.fillStyle = i % 2 ? '#776346' : '#a18458';
+      ctx.beginPath(); ctx.ellipse(rockX, rockY, 23, 8, -0.1, 0, Math.PI * 2); ctx.fill();
+    }
     drawPerson(340, 350, '#536b52');
     const tick = state.activity.tick;
     const lunge = tick >= 70 ? Math.min(1, (tick - 70) / 18) : 0;
@@ -175,12 +222,43 @@ Campbound.renderer = (() => {
     const activity = state.activity;
     const stage = activity.runStage || 'carry';
     const progress = Math.min(1, (activity.runDistance || 0) / 100);
-    const gapWidths = [156, 132, 184, 144, 172, 126];
-    const gapLefts = [452, 466, 432, 458, 440, 470];
+    const gapWidths = [156, 132, 184, 144, 172, 126, 162, 138, 178, 148];
+    const gapLefts = [452, 466, 432, 458, 440, 470, 425, 479, 438, 461];
     const gapLeft = gapLefts[activity.phase % gapLefts.length];
     const gapWidth = gapWidths[activity.phase % gapWidths.length];
     const gapRight = gapLeft + gapWidth;
     const crewX = stage === 'set-bridge' || stage === 'crossing' ? gapLeft - 47 : 125 + progress * 270;
+
+    if (stage === 'race') {
+      const playerX = 145 + activity.raceProgress * 590;
+      const rivalX = 145 + activity.parshendiProgress * 590;
+      ctx.fillStyle = '#3d4e51'; ctx.fillRect(0, 100, 960, 440);
+      ctx.fillStyle = '#66705c'; ctx.beginPath(); ctx.moveTo(0, 275); ctx.lineTo(115, 210); ctx.lineTo(225, 275); ctx.lineTo(350, 185); ctx.lineTo(480, 275); ctx.lineTo(620, 195); ctx.lineTo(760, 275); ctx.lineTo(960, 205); ctx.lineTo(960, 540); ctx.lineTo(0, 540); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#92754c'; ctx.beginPath(); ctx.moveTo(0, 415); ctx.lineTo(960, 350); ctx.lineTo(960, 460); ctx.lineTo(0, 485); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#b89b67'; ctx.beginPath(); ctx.moveTo(0, 415); ctx.lineTo(960, 350); ctx.lineTo(960, 365); ctx.lineTo(0, 430); ctx.closePath(); ctx.fill();
+      for (let i = 0; i < 12; i += 1) {
+        const x = (i * 91 + 30) % 960; const y = 400 + (i % 4) * 12;
+        ctx.fillStyle = i % 2 ? '#796447' : '#a18557'; ctx.beginPath(); ctx.ellipse(x, y, 18, 6, -0.08, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.fillStyle = '#d2b77f'; ctx.fillRect(785, 235, 8, 142); ctx.fillRect(835, 235, 8, 142);
+      ctx.fillStyle = '#a3483c'; ctx.beginPath(); ctx.moveTo(793, 240); ctx.lineTo(859, 255); ctx.lineTo(793, 277); ctx.closePath(); ctx.fill();
+      drawPerson(playerX, 387, '#d4c3a2', true);
+      drawPerson(playerX - 28, 387, '#b9a47e');
+      drawPerson(playerX - 56, 387, '#89937c');
+      drawParshendi(rivalX, 0);
+      ctx.fillStyle = '#f4e6c4'; ctx.font = 'bold 18px Arial'; ctx.textAlign = 'center';
+      ctx.fillText('FINAL SPRINT  ·  RACE THE PARSHENDI TO THE PLATEAU', 480, 140);
+      ctx.fillStyle = '#302e27'; ctx.fillRect(220, 451, 520, 12); ctx.fillRect(220, 475, 520, 12);
+      ctx.fillStyle = '#dfbd7b'; ctx.fillRect(220, 451, 520 * activity.raceProgress, 12);
+      ctx.fillStyle = '#bd6854'; ctx.fillRect(220, 475, 520 * activity.parshendiProgress, 12);
+      ctx.fillStyle = '#dfbd7b'; ctx.font = 'bold 13px Arial'; ctx.textAlign = 'left'; ctx.fillText(`BRIDGE FOUR  ${Math.round(activity.raceProgress * 100)}%`, 220, 446);
+      ctx.fillStyle = '#e7a078'; ctx.fillText(`PARSHENDI  ${Math.round(activity.parshendiProgress * 100)}%`, 220, 470);
+      ctx.fillStyle = '#f4e6c4'; ctx.font = 'bold 14px Arial'; ctx.fillText(`TIME  ${Math.max(0, 35 - activity.runTime).toFixed(1)}s`, 480, 165);
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#e8ddc7'; ctx.font = 'bold 16px Arial'; ctx.fillText('SPACE / E / ACT  ·  SPRINT!', 480, 520);
+      ctx.textAlign = 'left';
+      return;
+    }
 
     ctx.fillStyle = '#202a2a'; ctx.fillRect(0, 100, 960, 440);
     ctx.fillStyle = '#54604e'; ctx.fillRect(0, 145, 960, 115);
@@ -238,7 +316,7 @@ Campbound.renderer = (() => {
     ctx.fillStyle = '#27312d'; ctx.fillRect(105, 194, 750, 10);
     ctx.fillStyle = '#e2bd76'; ctx.fillRect(105, 194, 750 * (stage === 'set-bridge' || stage === 'crossing' ? 1 : progress), 10);
     if (activity.questRun) {
-      const secondsLeft = Math.max(0, 20 - activity.runTime);
+      const secondsLeft = Math.max(0, 35 - activity.runTime);
       ctx.fillStyle = '#f4e6c4'; ctx.font = 'bold 18px Arial'; ctx.textAlign = 'right';
       ctx.fillText(`TIME  ${secondsLeft.toFixed(1)}s`, 855, 180);
     }
@@ -252,7 +330,8 @@ Campbound.renderer = (() => {
     ctx.fillText(cue, 480, 495);
     if (stage === 'volley') {
       ctx.fillStyle = '#332b25'; ctx.fillRect(105, 214, 750, 9);
-      ctx.fillStyle = '#e59a66'; ctx.fillRect(105, 214, 750 * Math.max(0, 1 - activity.volleyTick / 120), 9);
+      const braceWindow = 120 + (state.badges.includes('arrow-guard') ? 30 : 0);
+      ctx.fillStyle = '#e59a66'; ctx.fillRect(105, 214, 750 * Math.max(0, 1 - activity.volleyTick / braceWindow), 9);
     }
     ctx.textAlign = 'left';
   }
@@ -319,7 +398,7 @@ Campbound.renderer = (() => {
 
   function drawActivity() {
     const activityDrawers = { stew: drawStew, fight: drawFight, run: drawRun, spear: drawSpear };
-    const titles = { stew: 'CAMP KITCHEN', fight: 'ROCKY TRAIL', run: 'BRIDGE CROSSING', spear: 'TRAINING RING' };
+    const titles = { stew: 'CAMP KITCHEN', fight: 'ROCKY TRAIL', run: state.activity.runStage === 'race' ? 'RACE TO THE PLATEAU' : 'BRIDGE CROSSING', spear: 'TRAINING RING' };
     drawActivityTitle(titles[state.scene]);
     activityDrawers[state.scene]();
   }

@@ -21,7 +21,7 @@ Campbound.main = (() => {
       state.player.x = 900;
       state.player.y = 380;
       ui.setChapter('Beyond camp · Shattered Plains');
-      ui.say('<strong>The trail opens onto the Shattered Plains.</strong> A Bridge Four runner is waiting beside the supply post.', 'Follow the trail left to return. Reach the supply post and press E / ACT to start the 20-second bridge quest.');
+      ui.say('<strong>The trail opens onto the Shattered Plains.</strong> A Bridge Four runner is waiting beside the supply post.', 'Follow the trail right to return. Reach the supply post and press E / ACT to start the 35-second bridge quest.');
     } else if (state.scene === 'plains' && state.player.x >= 923 && state.player.y > 250 && state.player.y < 420) {
       state.scene = 'camp';
       state.player.x = 55;
@@ -39,8 +39,10 @@ Campbound.main = (() => {
     movePlayer(frameScale);
     Campbound.activities.updateFrame(frameScale);
     if (braceButton) {
-      const canBrace = state.scene === 'fight' || state.scene === 'run';
-      if (braceButton.hidden === canBrace) braceButton.hidden = !canBrace;
+      const sprinting = state.scene === 'run' && state.activity.runStage === 'race';
+      const showAction = state.scene === 'fight' || state.scene === 'run';
+      if (braceButton.hidden === showAction) braceButton.hidden = !showAction;
+      braceButton.textContent = sprinting ? 'SPRINT' : 'SHIFT / BRACE';
     }
     Campbound.renderer.draw();
     requestAnimationFrame(frame);
@@ -50,9 +52,9 @@ Campbound.main = (() => {
     if (started) return;
     started = true;
     document.querySelector('#intro').remove();
-    ui.say('<strong>Home camp</strong> - Follow the TRAIL OUT gate at the left edge to reach the Shattered Plains and take on the long Bridge Four quest.', 'Click an activity marker, or walk close and press E / Space. Use WASD / arrows to move through the gate.');
     ui.say('<strong>Home camp</strong> — Your day is yours. The cook waves you over; beyond the tents, someone has spotted a Parshendi.', 'Click an activity marker, or walk close and press E / Space.');
     ui.updateHud();
+    ui.say('<strong>Home camp</strong> - Follow the TRAIL OUT gate at the left edge to reach the Shattered Plains and take on the long Bridge Four quest.', 'Click an activity marker, or walk close and press E / Space. Use WASD / arrows to move through the gate.');
     requestAnimationFrame(frame);
   }
 

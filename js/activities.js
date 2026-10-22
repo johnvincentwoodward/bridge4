@@ -15,11 +15,114 @@ Campbound.activities = (() => {
 
   function spearWindow(hits) { return 42 - Math.min(hits, 2) * 5; }
 
+  const mazeWidth = 24;
+  const mazeHeight = 18;
+  function mazeEdge(a, b) { return a < b ? `${a}:${b}` : `${b}:${a}`; }
+
+  function createMaze() {
+    let seed = (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0;
+    const random = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 0x100000000; };
+    const index = (col, row) => row * mazeWidth + col;
+    const links = new Set();
+    const visited = new Array(mazeWidth * mazeHeight).fill(false);
+    const startCell = { col: 0, row: Math.floor(mazeHeight / 2) };
+    const stack = [startCell];
+    visited[index(startCell.col, startCell.row)] = true;
+    while (stack.length) {
+      const cell = stack[stack.length - 1];
+      const options = [[1, 0], [-1, 0], [0, 1], [0, -1]]
+        .map(([dc, dr]) => ({ col: cell.col + dc, row: cell.row + dr }))
+        .filter(next => next.col >= 0 && next.col < mazeWidth && next.row >= 0 && next.row < mazeHeight && !visited[index(next.col, next.row)]);
+      if (!options.length) { stack.pop(); continue; }
+      const next = options[Math.floor(random() * options.length)];
+      links.add(mazeEdge(index(cell.col, cell.row), index(next.col, next.row)));
+      visited[index(next.col, next.row)] = true;
+      stack.push(next);
+    }
+    // A few extra bridges create alternate routes, while the remaining wide gaps form dead ends.
+    for (let row = 0; row < mazeHeight; row += 1) {
+      for (let col = 0; col < mazeWidth; col += 1) {
+        const from = index(col, row);
+        if (col + 1 < mazeWidth && random() < 0.16) links.add(mazeEdge(from, index(col + 1, row)));
+        if (row + 1 < mazeHeight && random() < 0.16) links.add(mazeEdge(from, index(col, row + 1)));
+      }
+    }
+    const distances = new Array(mazeWidth * mazeHeight).fill(-1);
+    const queue = [index(startCell.col, startCell.row)];
+    distances[queue[0]] = 0;
+    for (let cursor = 0; cursor < queue.length; cursor += 1) {
+      const current = queue[cursor];
+      const col = current % mazeWidth; const row = Math.floor(current / mazeWidth);
+      for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nc = col + dc; const nr = row + dr;
+        if (nc < 0 || nc >= mazeWidth || nr < 0 || nr >= mazeHeight) continue;
+        const next = index(nc, nr);
+        if (distances[next] < 0 && links.has(mazeEdge(current, next))) {
+          distances[next] = distances[current] + 1;
+          queue.push(next);
+        }
+      }
+    }
+    return {
+      width: mazeWidth, height: mazeHeight, links, start: startCell,
+      goal: { col: mazeWidth - 1, row: Math.floor(mazeHeight / 2) },
+      col: startCell.col, row: startCell.row, steps: 0,
+      shortest: distances[index(mazeWidth - 1, Math.floor(mazeHeight / 2))],
+      runTime: 0, timeLimit: 75, timeCost: 0.25,
+      moveCooldown: 0, bridgeFlash: 0, bridgeFrom: null, bridgeTo: null,
+      parshendiProgress: 0
+    };
+  }
+
+  function moveMaze(dc, dr) {
+    const maze = activityState.maze;
+    if (!maze) return;
+    const col = maze.col + dc; const row = maze.row + dr;
+    if (col < 0 || col >= maze.width || row < 0 || row >= maze.height) return;
+    const from = maze.row * maze.width + maze.col;
+    const to = row * maze.width + col;
+    if (!maze.links.has(mazeEdge(from, to))) {
+      ui.notify('That chasm is too wide for the bridge. Try another plateau.');
+      maze.moveCooldown = 30;
+      return;
+    }
+    maze.bridgeFrom = { col: maze.col, row: maze.row };
+    maze.bridgeTo = { col, row };
+    maze.bridgeFlash = 18;
+    maze.col = col; maze.row = row; maze.steps += 1;
+    maze.runTime += maze.timeCost;
+    maze.moveCooldown = 10;
+    if (col === maze.goal.col && row === maze.goal.row) {
+      finish(true, `You reach the chrysalis in ${maze.runTime.toFixed(1)} seconds using ${maze.steps} bridges. The Parshendi arrives just behind you.`);
+    }
+  }
+
+  function updateMaze(frameScale) {
+    const maze = activityState.maze;
+    if (!maze) return;
+    maze.runTime += frameScale / 60;
+    maze.parshendiProgress = Math.min(1, maze.runTime / maze.timeLimit);
+    maze.bridgeFlash = Math.max(0, maze.bridgeFlash - frameScale);
+    maze.moveCooldown = Math.max(0, maze.moveCooldown - frameScale);
+    if (maze.runTime >= maze.timeLimit) {
+      finish(false, 'The Parshendi reaches the chrysalis first. The bridge crew turns back to camp.');
+      return;
+    }
+    if (maze.moveCooldown > 0) return;
+    const keys = Campbound.input.keys;
+    const direction = keys.arrowup || keys.w ? [0, -1]
+      : keys.arrowdown || keys.s ? [0, 1]
+        : keys.arrowleft || keys.a ? [-1, 0]
+          : keys.arrowright || keys.d ? [1, 0] : null;
+    if (direction) moveMaze(direction[0], direction[1]);
+  }
+
   const help = {
-    stew: 'Press 1 / 2 / 3, Space, click the pot, or use E / ACT.',
+    stew: 'Add 1 meat, 2 roots, 3 herbs; then Space to stir and E / ACT to taste.',
     fight: 'Space or click = strike · Shift = dodge the lunge',
     run: 'The crew hauls automatically · Brace with Shift / BRACE · E / ACT at each chasm',
-    spear: 'Space = thrust'
+    spear: 'Space = thrust',
+    maze: 'WASD / arrow keys move the bridge crew. Open planks cross narrow gaps; black gaps are too wide. Reach the chrysalis before the timer ends.'
   };
 
   function start(id, questRun = false) {
@@ -37,38 +140,46 @@ Campbound.activities = (() => {
       activityState.crossingTick = 0;
       activityState.questRun = questRun;
       activityState.runTime = 0;
-      activityState.crossingsNeeded = questRun ? 6 : 3;
+      activityState.crossingsNeeded = questRun ? 10 : 3;
+      activityState.raceProgress = 0;
+      activityState.parshendiProgress = 0;
     }
+    if (id === 'maze') activityState.maze = createMaze();
     ui.setChapter(questRun ? 'Bridge Four Quest · Six chasms' : Campbound.config.activities[id].chapter);
 
     const instructions = {
       stew: '<strong>Make the stew</strong> — Add meat, roots, then herbs. Press the shown number, Space, click the pot, or use E / ACT to add the next ingredient.',
       fight: '<strong>A Parshendi lunges!</strong> Click the fight or press Space to strike when it winds up. When it rushes, press Shift to dodge. Land three hits.',
       run: questRun
-        ? '<strong>Bridge Four needs you!</strong> Carry the bridge across six chasms before the 20-second timer runs out. Brace for arrows, then set the bridge at each chasm. Finish to earn Bridge Bearer; finish without misses for Arrow Guard; finish under 15 seconds for Fleet Runner.'
+        ? '<strong>Bridge Four needs you!</strong> Carry the bridge across the practice chasms. Brace for arrows and set the bridge down for the crew.'
         : '<strong>Bridge Four!</strong> The crew carries the bridge for you. When arrows appear, press Shift or BRACE. At each chasm, press Space or E / ACT to set the bridge down. Make three crossings.',
       spear: '<strong>Spear practice</strong> — Track the moving target. Thrust with Space as it enters the gold zone. Land three hits; you can miss three times.'
     };
 
+    instructions.stew = '<strong>Cook for Bridge Four.</strong> Add meat, roots, and herbs in order, stir until it thickens, then taste it. The next step is always shown above the pot.';
+    instructions.maze = '<strong>Race for the chrysalis.</strong> Explore the plateau maze with WASD or the arrow keys. Plank bridges mark safe gaps; dark gaps are too wide and lead nowhere. Backtrack and find another route before the Parshendi reaches the chrysalis.';
+    if (questRun) instructions.run = '<strong>Bridge Four needs you!</strong> Carry the bridge across ten chasms in 35 seconds, then race the Parshendi to the plateau. Brace for arrows, set the bridge at each gap, and press Space / E / ACT five times in the final sprint. Finish to earn Bridge Bearer; finish without misses for Arrow Guard; finish under 30 seconds for Fleet Runner.';
+    if (questRun) ui.setChapter('Bridge Four Quest - Ten chasms and a race');
     ui.say(instructions[id], help[id]);
     ui.notify('Activity started · Esc returns to camp');
   }
 
   function finish(won, message) {
     const wasQuest = activityState.id === 'run' && activityState.questRun;
+    const wasMaze = activityState.id === 'maze';
     if (won && wasQuest) {
       addBadge('bridge-bearer', 'Bridge Bearer', 'One extra mistake allowed on future quest runs.');
       if (activityState.mistakes === 0) addBadge('arrow-guard', 'Arrow Guard', 'Brace window +0.5 sec on future runs.');
-      if (activityState.runTime <= 15) addBadge('fleet-runner', 'Fleet Runner', 'Hauling speed +20% on future runs.');
+      if (activityState.runTime <= 30) addBadge('fleet-runner', 'Fleet Runner', 'Hauling speed +20% on future runs.');
       message += activityState.mistakes === 0 ? ' Arrow Guard badge earned!' : ' Bridge Bearer badge earned!';
     }
     state.spirit += won ? 2 : 1;
     state.energy = Math.max(0, state.energy - (won ? 0 : 1));
-    if (won) state.completed[activityState.id] += 1;
+    if (won && state.completed[activityState.id] !== undefined) state.completed[activityState.id] += 1;
     // Put the player back in the camp immediately so the result never locks movement.
-    state.scene = wasQuest ? 'plains' : 'camp';
-    state.player.x = wasQuest ? 850 : Campbound.config.player.startX;
-    state.player.y = wasQuest ? 380 : Campbound.config.player.startY;
+    state.scene = wasQuest || wasMaze ? 'plains' : 'camp';
+    state.player.x = wasMaze ? 680 : wasQuest ? 850 : Campbound.config.player.startX;
+    state.player.y = wasMaze || wasQuest ? 380 : Campbound.config.player.startY;
     Campbound.ui.updateHud();
     ui.say(`<strong>${message}</strong> ${won ? 'The crew cheers you on.' : 'You brush yourself off and catch your breath.'} Crew spirit +${won ? 2 : 1}.`, 'You are back at camp. Walk to another marker when you are ready.');
     ui.setChapter('Home camp · Morning');
@@ -77,18 +188,24 @@ Campbound.activities = (() => {
       ui.setChapter('Beyond camp - Shattered Plains');
       ui.say(`<strong>${message}</strong> ${won ? 'The crew cheers you on.' : 'You brush yourself off and catch your breath.'} Crew spirit +${won ? 2 : 1}.`, 'You are back at the supply post. Try again or follow the trail back to camp.');
     }
+    if (wasMaze) {
+      ui.setChapter('Beyond camp - Shattered Plains');
+      ui.say(`<strong>${message}</strong> ${won ? 'Bridge Four celebrates the run.' : 'You can try a different route next time.'} Crew spirit +${won ? 2 : 1}.`, 'You are back at the chrysalis trail. Press E / ACT at the map marker to try again, or follow the trail right to camp.');
+    }
   }
 
   function interact() {
-    if (state.scene === 'stew') { addIngredient([1, 2, 3][activityState.phase]); return; }
+    if (state.scene === 'stew') { addIngredient([1, 2, 3, 4, 5][activityState.phase]); return; }
     if (state.scene === 'fight') { strike(); return; }
     if (state.scene === 'run') { bridgeAction(); return; }
     if (state.scene === 'spear') { thrust(); return; }
     if (state.scene === 'plains') {
+      if (Math.hypot(680 - state.player.x, 300 - state.player.y) < 100) { start('maze'); return; }
       if (Math.hypot(510 - state.player.x, 300 - state.player.y) < 100) start('run', true);
       else ui.notify('Follow the trail to the Bridge Four supply post.');
       return;
     }
+    if (state.scene === 'maze') { ui.notify('Use the arrow keys or WASD to move between plateaus.'); return; }
 
     const places = Campbound.config.activities;
     const nearest = Object.entries(places)
@@ -100,6 +217,7 @@ Campbound.activities = (() => {
 
   function activateMarkerAt(x, y) {
     if (state.scene === 'plains') {
+      if (Math.hypot(680 - x, 300 - y) <= 48) { start('maze'); return true; }
       if (Math.hypot(510 - x, 300 - y) > 48) return false;
       start('run', true);
       return true;
@@ -114,6 +232,13 @@ Campbound.activities = (() => {
   }
 
   function handleKey(key, code) {
+    if (state.scene === 'maze' && key === 'escape') {
+      state.scene = 'plains'; activityState.id = '';
+      state.player.x = 680; state.player.y = 380;
+      ui.setChapter('Beyond camp - Shattered Plains');
+      ui.say('<strong>Maze paused.</strong> The chrysalis map will be waiting if you want another attempt.', 'Press E / ACT at the chrysalis marker to begin again.');
+      return;
+    }
     if (key === 'escape' && state.scene !== 'camp') {
       state.scene = 'camp';
       activityState.id = '';
@@ -124,7 +249,7 @@ Campbound.activities = (() => {
     if (key === 'e' || (code === 'Space' && state.scene === 'camp')) { interact(); return; }
 
     if (state.scene === 'stew' && code === 'Space') {
-      addIngredient([1, 2, 3][activityState.phase]);
+      addIngredient([1, 2, 3, 4, 5][activityState.phase]);
       return;
     }
     if (state.scene === 'stew' && ['1', '2', '3'].includes(key)) addIngredient(Number(key));
@@ -136,7 +261,11 @@ Campbound.activities = (() => {
   }
 
   function bridgeAction() {
-    if (activityState.runStage === 'set-bridge') {
+    if (activityState.runStage === 'race') {
+      activityState.raceProgress = Math.min(1, activityState.raceProgress + 0.2);
+      if (activityState.raceProgress >= 1) finish(true, 'You and Bridge Four beat the Parshendi to the plateau!');
+      else ui.notify(`Sprint! ${Math.round(activityState.raceProgress * 100)}% to the plateau.`);
+    } else if (activityState.runStage === 'set-bridge') {
       activityState.runStage = 'crossing';
       activityState.crossingTick = 0;
       ui.notify('Bridge set! The crew rushes across.');
@@ -156,11 +285,11 @@ Campbound.activities = (() => {
   }
 
   function addIngredient(number) {
-    const expected = [1, 2, 3][activityState.phase];
+    const expected = [1, 2, 3, 4, 5][activityState.phase];
     if (number === expected) {
       activityState.phase += 1;
-      ui.notify(['Good! The meat is sizzling.', 'Nice, roots in the pot.', 'Perfect seasoning!'][activityState.phase - 1]);
-      if (activityState.phase === 3) finish(true, 'A hearty stew, just in time for the crew.');
+      ui.notify(['The meat is browned and sizzling.', 'Roots soften in the broth.', 'Herbs add a bright aroma.', 'Good stir! The stew is thickening.', 'Perfect taste. Supper is ready!'][activityState.phase - 1]);
+      if (activityState.phase === 5) finish(true, 'A hearty stew, ready for the Bridge Four crew.');
     } else {
       activityState.mistakes += 1;
       ui.notify('Oops! Try the next ingredient in order.');
@@ -209,17 +338,18 @@ Campbound.activities = (() => {
   function updateFrame(frameScale = 1) {
     if (state.scene === 'camp') return;
     activityState.tick += frameScale;
+    if (state.scene === 'maze') { updateMaze(frameScale); return; }
     if (state.scene === 'run') {
       if (activityState.questRun) {
         activityState.runTime += frameScale / 60;
-        if (activityState.runTime >= 20) {
-          finish(false, 'The twenty seconds are up. The crew falls back to the supply post.');
+        if (activityState.runTime >= 35) {
+          finish(false, 'The 35 seconds are up. The crew falls back to the supply post.');
           return;
         }
       }
       if (activityState.runStage === 'carry') {
         const haulBonus = state.badges.includes('fleet-runner') ? 1.2 : 1;
-        activityState.runDistance += (activityState.questRun ? 1.5 : 0.9) * haulBonus * frameScale;
+        activityState.runDistance += (activityState.questRun ? 2.2 : 0.9) * haulBonus * frameScale;
         if (!activityState.volleyDone && activityState.runDistance >= 35) {
           activityState.runStage = 'volley';
           activityState.volleyTick = 0;
@@ -248,6 +378,13 @@ Campbound.activities = (() => {
         if (activityState.crossingTick >= 72) {
           activityState.phase += 1;
           if (activityState.phase >= activityState.crossingsNeeded) {
+            if (activityState.questRun) {
+              activityState.runStage = 'race';
+              activityState.raceProgress = 0;
+              activityState.parshendiProgress = 0;
+              ui.notify('The Parshendi is racing for the plateau! Sprint with Space or E / ACT!');
+              return;
+            }
             finish(true, 'Bridge Four carries the last bridge across together.');
             return;
           }
@@ -255,6 +392,12 @@ Campbound.activities = (() => {
           activityState.runStage = 'carry';
           activityState.volleyDone = false;
           ui.notify(`Crossing ${activityState.phase}/${activityState.crossingsNeeded} clear. Lift and haul!`);
+        }
+      } else if (activityState.runStage === 'race') {
+        activityState.parshendiProgress = Math.min(1, activityState.parshendiProgress + frameScale / 300);
+        if (activityState.parshendiProgress >= 1) {
+          finish(false, 'The Parshendi reaches the plateau first. The crew makes it safely across behind them.');
+          return;
         }
       }
       return;

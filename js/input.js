@@ -41,6 +41,10 @@ Campbound.input = (() => {
   });
 
   document.querySelector('#act').addEventListener('click', () => onAction('e', 'KeyE'));
-  document.querySelector('#brace').addEventListener('click', () => onAction('shift', 'Shift'));
+  document.querySelector('#brace').addEventListener('click', () => {
+    const activity = Campbound.state.activity;
+    if (Campbound.state.scene === 'run' && activity.runStage === 'race') onAction('e', 'KeyE');
+    else onAction('shift', 'Shift');
+  });
   return { keys, setActionHandler };
 })();
