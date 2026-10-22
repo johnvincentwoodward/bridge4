@@ -4,6 +4,20 @@ Campbound.input = (() => {
   const keys = Object.create(null);
   let onAction = () => {};
 
+  const canvas = document.querySelector('#world');
+  canvas.addEventListener('click', (event) => {
+    const bounds = canvas.getBoundingClientRect();
+    const x = (event.clientX - bounds.left) * canvas.width / bounds.width;
+    const y = (event.clientY - bounds.top) * canvas.height / bounds.height;
+    if (Campbound.state.scene === 'camp') {
+      if (!Campbound.activities.activateMarkerAt(x, y)) {
+        window.Campbound.ui.notify('Click an activity marker to start, or walk close and press E.');
+      }
+      return;
+    }
+    onAction(' ', 'Space');
+  });
+
   function setActionHandler(handler) { onAction = handler; }
 
   document.addEventListener('keydown', (event) => {
@@ -27,5 +41,6 @@ Campbound.input = (() => {
   });
 
   document.querySelector('#act').addEventListener('click', () => onAction('e', 'KeyE'));
+  document.querySelector('#brace').addEventListener('click', () => onAction('shift', 'Shift'));
   return { keys, setActionHandler };
 })();

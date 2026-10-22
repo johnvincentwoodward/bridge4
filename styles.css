@@ -58,13 +58,14 @@ canvas { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; border
   .panel { grid-template-columns: 1fr; }
   .side { border: 0; border-top: 1px solid #ffffff20; }
   .controls { display: none; }
-  .mobile-controls { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; letter-spacing: 0; }
+  .mobile-controls { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 8px; letter-spacing: 0; }
   .pad { display: grid; grid-template-columns: repeat(3, 38px); grid-template-rows: repeat(2, 32px); gap: 3px; }
   .pad button, .act { border: 1px solid #ffffff35; border-radius: 4px; background: #303b37; color: #eee; }
   .pad button[data-dir="up"] { grid-column: 2; }
   .pad button[data-dir="left"] { grid-column: 1; grid-row: 2; }
   .pad button[data-dir="down"] { grid-column: 2; grid-row: 2; }
   .pad button[data-dir="right"] { grid-column: 3; grid-row: 2; }
-  .act { height: 36px; padding: 0 14px; }
+  .touch-actions { display: flex; align-items: center; gap: 5px; }
+  .act, .brace { height: 36px; padding: 0 10px; border: 1px solid #ffffff35; border-radius: 4px; background: #303b37; color: #eee; white-space: nowrap; font: bold 10px Arial, sans-serif; letter-spacing: .04em; }
   .chapter { font-size: 9px; }
 }

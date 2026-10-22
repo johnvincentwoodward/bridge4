@@ -26,7 +26,7 @@
         <div class="bar"><div class="fill" id="spiritbar"></div></div>
         <div class="status-row"><span>ENERGY</span><span id="energy">5 / 5</span></div>
         <div class="bar"><div class="fill fill-gold" id="energybar"></div></div>
-        <div class="tip" id="tip">Walk to a camp activity and press E / Space.</div>
+        <div class="tip" id="tip">Click an activity marker, or walk close and press E / Space.</div>
       </aside>
     </section>
 
@@ -42,7 +42,10 @@
         <button data-dir="down" aria-label="Move down">▼</button>
         <button data-dir="right" aria-label="Move right">▶</button>
       </div>
-      <button class="act" id="act">E / ACT</button>
+      <div class="touch-actions">
+        <button class="brace" id="brace" hidden>SHIFT / BRACE</button>
+        <button class="act" id="act">E / ACT</button>
+      </div>
     </div>
   </main>
 
@@ -50,7 +53,7 @@
     <div class="modal">
       <div class="eyebrow">A small camp adventure</div>
       <h1>Campbound</h1>
-      <p>Home camp is waking up. Head out and find your own work: make a pot of stew, fight a parshendy, run the bridge, or train with a spear. Each activity is a little game, and the crew will remember how you do.</p>
+      <p>Home camp is waking up. Head out and find your own work: make a pot of stew, face a Parshendi, run the bridge, or train with a spear. Each activity is a little game, and the crew will remember how you do.</p>
       <button id="start">Leave the tent</button>
     </div>
   </div>
