@@ -9,9 +9,9 @@ Campbound.input = (() => {
     const bounds = canvas.getBoundingClientRect();
     const x = (event.clientX - bounds.left) * canvas.width / bounds.width;
     const y = (event.clientY - bounds.top) * canvas.height / bounds.height;
-    if (Campbound.state.scene === 'camp') {
+    if (Campbound.state.scene === 'camp' || Campbound.state.scene === 'plains') {
       if (!Campbound.activities.activateMarkerAt(x, y)) {
-        window.Campbound.ui.notify('Click an activity marker to start, or walk close and press E.');
+        window.Campbound.ui.notify(Campbound.state.scene === 'plains' ? 'Click the Bridge Four supply post to start the quest.' : 'Click an activity marker to start, or walk close and press E.');
       }
       return;
     }

@@ -59,6 +59,28 @@ Campbound.renderer = (() => {
     ctx.textAlign = 'left'; ctx.font = '13px Arial'; ctx.fillStyle = '#f0dfbd'; ctx.fillText('HOME CAMP', 25, 42);
   }
 
+  function drawPlains() {
+    ctx.fillStyle = '#333b32'; ctx.fillRect(0, 0, 960, 540);
+    ctx.fillStyle = '#6e7158'; ctx.fillRect(0, 80, 960, 460);
+    for (let i = 0; i < 16; i += 1) {
+      const x = (i * 131 + 37) % 960;
+      const y = 115 + ((i * 83) % 340);
+      ctx.fillStyle = i % 2 ? '#8b7956' : '#5b604d';
+      ctx.beginPath(); ctx.moveTo(x, y + 24); ctx.lineTo(x + 25, y - 6); ctx.lineTo(x + 57, y + 24); ctx.closePath(); ctx.fill();
+    }
+    ctx.strokeStyle = '#b09667'; ctx.lineWidth = 50; ctx.beginPath(); ctx.moveTo(0, 385); ctx.bezierCurveTo(240, 400, 290, 282, 510, 300); ctx.bezierCurveTo(670, 310, 750, 390, 960, 380); ctx.stroke();
+    ctx.strokeStyle = '#d0b17a'; ctx.lineWidth = 2; ctx.setLineDash([12, 12]); ctx.beginPath(); ctx.moveTo(0, 385); ctx.bezierCurveTo(240, 400, 290, 282, 510, 300); ctx.bezierCurveTo(670, 310, 750, 390, 960, 380); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = '#6a4e34'; ctx.fillRect(469, 252, 82, 64);
+    ctx.fillStyle = '#92704b'; ctx.beginPath(); ctx.moveTo(458, 256); ctx.lineTo(510, 220); ctx.lineTo(562, 256); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#d1b57e'; ctx.fillRect(483, 267, 55, 25);
+    ctx.fillStyle = '#332d25'; ctx.font = 'bold 10px Arial'; ctx.textAlign = 'center'; ctx.fillText('BRIDGE FOUR', 510, 278); ctx.fillText('QUEST', 510, 289);
+    ctx.fillStyle = '#e8d5ad'; ctx.font = 'bold 19px Arial'; ctx.fillText('THE SHATTERED PLAINS', 480, 55);
+    ctx.font = '13px Arial'; ctx.fillText('SUPPLY POST  ·  PRESS E / ACT OR CLICK TO BEGIN', 510, 338);
+    ctx.textAlign = 'left'; ctx.fillStyle = '#eee1c3'; ctx.font = 'bold 13px Arial'; ctx.fillText('TRAIL TO CAMP  →', 782, 350);
+    drawPerson(state.player.x, state.player.y, '#d0bea0', true);
+    ctx.textAlign = 'left';
+  }
+
   function drawActivityTitle(title) {
     ctx.fillStyle = '#29332f'; ctx.fillRect(0, 0, 960, 540);
     ctx.fillStyle = '#58634b'; ctx.fillRect(0, 70, 960, 470);
@@ -153,10 +175,10 @@ Campbound.renderer = (() => {
     const activity = state.activity;
     const stage = activity.runStage || 'carry';
     const progress = Math.min(1, (activity.runDistance || 0) / 100);
-    const gapWidths = [156, 132, 184];
-    const gapLefts = [452, 466, 432];
-    const gapLeft = gapLefts[Math.min(activity.phase, 2)];
-    const gapWidth = gapWidths[Math.min(activity.phase, 2)];
+    const gapWidths = [156, 132, 184, 144, 172, 126];
+    const gapLefts = [452, 466, 432, 458, 440, 470];
+    const gapLeft = gapLefts[activity.phase % gapLefts.length];
+    const gapWidth = gapWidths[activity.phase % gapWidths.length];
     const gapRight = gapLeft + gapWidth;
     const crewX = stage === 'set-bridge' || stage === 'crossing' ? gapLeft - 47 : 125 + progress * 270;
 
@@ -173,7 +195,7 @@ Campbound.renderer = (() => {
       ctx.beginPath(); ctx.moveTo(85 + crack * 52, 357); ctx.lineTo(103 + crack * 52, 374); ctx.lineTo(94 + crack * 52, 393); ctx.stroke();
     }
     ctx.fillStyle = '#d8c59d'; ctx.font = 'bold 13px Arial'; ctx.textAlign = 'center';
-    ctx.fillText('BRIDGE FOUR', 240, 296); ctx.fillText(`CHASM ${Math.min(activity.phase + 1, 3)}`, gapLeft + gapWidth / 2, 365);
+    ctx.fillText('BRIDGE FOUR', 240, 296); ctx.fillText(`CHASM ${Math.min(activity.phase + 1, activity.crossingsNeeded || 3)}`, gapLeft + gapWidth / 2, 365);
 
     if (stage === 'set-bridge' || stage === 'crossing') {
       const bridgeStart = gapLeft - 42;
@@ -210,10 +232,16 @@ Campbound.renderer = (() => {
 
     // Crossing count and haul meter stay visible through each short stage.
     ctx.textAlign = 'left'; ctx.font = 'bold 15px Arial'; ctx.fillStyle = '#f4e6c4';
-    ctx.fillText(`CHASM ${Math.min(activity.phase + 1, 3)} / 3`, 105, 180);
-    ctx.fillText(`MISSES ${activity.mistakes} / 3`, 740, 180);
+    ctx.fillText(`CHASM ${Math.min(activity.phase + 1, activity.crossingsNeeded || 3)} / ${activity.crossingsNeeded || 3}`, 105, 180);
+    const missLimit = (activity.questRun ? 2 : 3) + (activity.questRun && state.badges.includes('bridge-bearer') ? 1 : 0);
+    ctx.fillText(`MISSES ${activity.mistakes} / ${missLimit}`, 740, 180);
     ctx.fillStyle = '#27312d'; ctx.fillRect(105, 194, 750, 10);
     ctx.fillStyle = '#e2bd76'; ctx.fillRect(105, 194, 750 * (stage === 'set-bridge' || stage === 'crossing' ? 1 : progress), 10);
+    if (activity.questRun) {
+      const secondsLeft = Math.max(0, 20 - activity.runTime);
+      ctx.fillStyle = '#f4e6c4'; ctx.font = 'bold 18px Arial'; ctx.textAlign = 'right';
+      ctx.fillText(`TIME  ${secondsLeft.toFixed(1)}s`, 855, 180);
+    }
 
     const cue = stage === 'volley' ? 'SHIFT / E / ACT  •  BRACE NOW'
       : stage === 'set-bridge' ? 'SPACE / E / ACT  •  SET THE BRIDGE'
@@ -298,6 +326,7 @@ Campbound.renderer = (() => {
 
   function draw() {
     if (state.scene === 'camp' || state.scene === 'result') drawCamp();
+    else if (state.scene === 'plains') drawPlains();
     else drawActivity();
   }
 

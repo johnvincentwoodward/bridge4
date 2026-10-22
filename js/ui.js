@@ -17,6 +17,19 @@ Campbound.ui = (() => {
     document.querySelector('#spiritbar').style.width = `${Math.min(100, state.spirit * 10)}%`;
     document.querySelector('#energy').textContent = `${state.energy} / 5`;
     document.querySelector('#energybar').style.width = `${state.energy * 20}%`;
+    const badgeNames = {
+      'bridge-bearer': 'Bridge Bearer',
+      'arrow-guard': 'Arrow Guard',
+      'fleet-runner': 'Fleet Runner'
+    };
+    const badgeList = document.querySelector('#badges');
+    const badgeCount = document.querySelector('#badge-count');
+    if (badgeList && badgeCount) {
+      badgeCount.textContent = state.badges.length;
+      badgeList.innerHTML = state.badges.length
+        ? state.badges.map((badge) => `<span class="badge">★ ${badgeNames[badge] || badge}</span>`).join('')
+        : 'Earn badges in the plains quest to improve future runs.';
+    }
   }
 
   function setChapter(label) { document.querySelector('#chapter').textContent = label; }

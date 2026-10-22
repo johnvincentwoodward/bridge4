@@ -22,7 +22,7 @@ Campbound.activities = (() => {
     spear: 'Space = thrust'
   };
 
-  function start(id) {
+  function start(id, questRun = false) {
     state.scene = id;
     activityState.id = id;
     activityState.tick = 0;
@@ -35,13 +35,18 @@ Campbound.activities = (() => {
       activityState.volleyDone = false;
       activityState.volleyTick = 0;
       activityState.crossingTick = 0;
+      activityState.questRun = questRun;
+      activityState.runTime = 0;
+      activityState.crossingsNeeded = questRun ? 6 : 3;
     }
-    ui.setChapter(Campbound.config.activities[id].chapter);
+    ui.setChapter(questRun ? 'Bridge Four Quest · Six chasms' : Campbound.config.activities[id].chapter);
 
     const instructions = {
       stew: '<strong>Make the stew</strong> — Add meat, roots, then herbs. Press the shown number, Space, click the pot, or use E / ACT to add the next ingredient.',
       fight: '<strong>A Parshendi lunges!</strong> Click the fight or press Space to strike when it winds up. When it rushes, press Shift to dodge. Land three hits.',
-      run: '<strong>Bridge Four!</strong> The crew carries the bridge for you. When arrows appear, press Shift or BRACE. At each chasm, press Space or E / ACT to set the bridge down. Make three crossings.',
+      run: questRun
+        ? '<strong>Bridge Four needs you!</strong> Carry the bridge across six chasms before the 20-second timer runs out. Brace for arrows, then set the bridge at each chasm. Finish to earn Bridge Bearer; finish without misses for Arrow Guard; finish under 15 seconds for Fleet Runner.'
+        : '<strong>Bridge Four!</strong> The crew carries the bridge for you. When arrows appear, press Shift or BRACE. At each chasm, press Space or E / ACT to set the bridge down. Make three crossings.',
       spear: '<strong>Spear practice</strong> — Track the moving target. Thrust with Space as it enters the gold zone. Land three hits; you can miss three times.'
     };
 
@@ -50,17 +55,28 @@ Campbound.activities = (() => {
   }
 
   function finish(won, message) {
+    const wasQuest = activityState.id === 'run' && activityState.questRun;
+    if (won && wasQuest) {
+      addBadge('bridge-bearer', 'Bridge Bearer', 'One extra mistake allowed on future quest runs.');
+      if (activityState.mistakes === 0) addBadge('arrow-guard', 'Arrow Guard', 'Brace window +0.5 sec on future runs.');
+      if (activityState.runTime <= 15) addBadge('fleet-runner', 'Fleet Runner', 'Hauling speed +20% on future runs.');
+      message += activityState.mistakes === 0 ? ' Arrow Guard badge earned!' : ' Bridge Bearer badge earned!';
+    }
     state.spirit += won ? 2 : 1;
     state.energy = Math.max(0, state.energy - (won ? 0 : 1));
     if (won) state.completed[activityState.id] += 1;
     // Put the player back in the camp immediately so the result never locks movement.
-    state.scene = 'camp';
-    state.player.x = Campbound.config.player.startX;
-    state.player.y = Campbound.config.player.startY;
+    state.scene = wasQuest ? 'plains' : 'camp';
+    state.player.x = wasQuest ? 850 : Campbound.config.player.startX;
+    state.player.y = wasQuest ? 380 : Campbound.config.player.startY;
     Campbound.ui.updateHud();
     ui.say(`<strong>${message}</strong> ${won ? 'The crew cheers you on.' : 'You brush yourself off and catch your breath.'} Crew spirit +${won ? 2 : 1}.`, 'You are back at camp. Walk to another marker when you are ready.');
     ui.setChapter('Home camp · Morning');
     ui.notify(won ? 'ACTIVITY COMPLETE' : 'GOOD TRY');
+    if (wasQuest) {
+      ui.setChapter('Beyond camp - Shattered Plains');
+      ui.say(`<strong>${message}</strong> ${won ? 'The crew cheers you on.' : 'You brush yourself off and catch your breath.'} Crew spirit +${won ? 2 : 1}.`, 'You are back at the supply post. Try again or follow the trail back to camp.');
+    }
   }
 
   function interact() {
@@ -68,6 +84,11 @@ Campbound.activities = (() => {
     if (state.scene === 'fight') { strike(); return; }
     if (state.scene === 'run') { bridgeAction(); return; }
     if (state.scene === 'spear') { thrust(); return; }
+    if (state.scene === 'plains') {
+      if (Math.hypot(510 - state.player.x, 300 - state.player.y) < 100) start('run', true);
+      else ui.notify('Follow the trail to the Bridge Four supply post.');
+      return;
+    }
 
     const places = Campbound.config.activities;
     const nearest = Object.entries(places)
@@ -78,6 +99,11 @@ Campbound.activities = (() => {
   }
 
   function activateMarkerAt(x, y) {
+    if (state.scene === 'plains') {
+      if (Math.hypot(510 - x, 300 - y) > 48) return false;
+      start('run', true);
+      return true;
+    }
     if (state.scene !== 'camp') return false;
     const nearest = Object.entries(Campbound.config.activities)
       .map(([id, place]) => ({ id, distance: Math.hypot(place.x - x, place.y - y) }))
@@ -184,8 +210,16 @@ Campbound.activities = (() => {
     if (state.scene === 'camp') return;
     activityState.tick += frameScale;
     if (state.scene === 'run') {
+      if (activityState.questRun) {
+        activityState.runTime += frameScale / 60;
+        if (activityState.runTime >= 20) {
+          finish(false, 'The twenty seconds are up. The crew falls back to the supply post.');
+          return;
+        }
+      }
       if (activityState.runStage === 'carry') {
-        activityState.runDistance += 0.55 * frameScale;
+        const haulBonus = state.badges.includes('fleet-runner') ? 1.2 : 1;
+        activityState.runDistance += (activityState.questRun ? 1.5 : 0.9) * haulBonus * frameScale;
         if (!activityState.volleyDone && activityState.runDistance >= 35) {
           activityState.runStage = 'volley';
           activityState.volleyTick = 0;
@@ -197,13 +231,15 @@ Campbound.activities = (() => {
         }
       } else if (activityState.runStage === 'volley') {
         activityState.volleyTick += frameScale;
-        if (activityState.volleyTick >= 120) {
+        const braceWindow = 120 + (state.badges.includes('arrow-guard') ? 30 : 0);
+        if (activityState.volleyTick >= braceWindow) {
           activityState.mistakes += 1;
           activityState.volleyDone = true;
           activityState.runStage = 'carry';
           ui.notify('Arrows hit the bridge. Keep the crew moving!');
-          if (activityState.mistakes >= 3) {
-            finish(false, 'The crew falls behind the volley and retreats to camp.');
+          const allowedMisses = (activityState.questRun ? 2 : 3) + (activityState.questRun && state.badges.includes('bridge-bearer') ? 1 : 0);
+          if (activityState.mistakes >= allowedMisses) {
+            finish(false, activityState.questRun ? 'The crew falls behind the volley and retreats to the supply post.' : 'The crew falls behind the volley and retreats to camp.');
             return;
           }
         }
@@ -211,14 +247,14 @@ Campbound.activities = (() => {
         activityState.crossingTick += frameScale;
         if (activityState.crossingTick >= 72) {
           activityState.phase += 1;
-          if (activityState.phase >= 3) {
+          if (activityState.phase >= activityState.crossingsNeeded) {
             finish(true, 'Bridge Four carries the last bridge across together.');
             return;
           }
           activityState.runDistance = 0;
           activityState.runStage = 'carry';
           activityState.volleyDone = false;
-          ui.notify(`Crossing ${activityState.phase}/3 clear. Lift and haul!`);
+          ui.notify(`Crossing ${activityState.phase}/${activityState.crossingsNeeded} clear. Lift and haul!`);
         }
       }
       return;
@@ -227,6 +263,12 @@ Campbound.activities = (() => {
       activityState.targetX = spearTargetX(activityState.tick, activityState.phase);
       activityState.thrustFlash = Math.max(0, (activityState.thrustFlash || 0) - frameScale);
     }
+  }
+  function addBadge(id, name, description) {
+    if (state.badges.includes(id)) return;
+    state.badges.push(id);
+    try { localStorage.setItem('campbound.badges', JSON.stringify(state.badges)); } catch (_error) { /* Badges still work for this session. */ }
+    ui.notify(`BADGE EARNED: ${name} — ${description}`);
   }
   return { interact, activateMarkerAt, handleKey, updateFrame };
 })();
